@@ -1,0 +1,30 @@
+<h1>HeatMap</h1>
+
+<canvas width="800" height="800">
+</canvas>
+
+<script type="text/javascript">
+var req = new XMLHttpRequest();
+req.onreadystatechange = function() {
+    if(req.readyState == 4)
+    {
+        var context = document.getElementsByTagName("canvas")[0].getContext('2d');
+        var points = eval(req.responseText);
+        for(var i = 0; i < points.size(); i++)
+        {
+            var x = (parseFloat(points[i].los1) +5) * 5;
+            var y = (parseFloat(points[i].los2)+5) * 5;
+            var v = parseFloat(points[i].mrsa);
+            context.moveTo(x +5, y);
+            context.beginPath();
+            context.fillStyle = "rgb("+ v +",0,0)";
+            context.strokeStyle = "rgb("+ (v-50)+",0,0)";
+            context.arc(x, y, 5, 0, Math.PI*2, true);
+            context.fill();
+            context.stroke();
+        }
+    }
+}
+req.open("GET", "/results.json/?<%= params.to_query(nil) %>", true);
+req.send(null);
+</script>
