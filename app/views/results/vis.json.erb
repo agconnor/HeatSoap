@@ -1,0 +1,9 @@
+[
+    <% @table.each do |cell| %>
+    {
+                los1 : '<%=h cell.los1 %>',
+                los2 : '<%=h cell.los2 %>',
+                mrsa : '<%= sprintf("%02d", cell.mrsa) %>'
+    },
+    <% end %>
+]

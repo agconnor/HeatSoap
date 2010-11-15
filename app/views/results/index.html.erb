@@ -1,30 +1,62 @@
 <h1>HeatMap</h1>
 
+<p>
+  <b>Start Day:</b>
+  <input type="text" id="start" />
+</p>
+
+<p>
+  <b>End Day:</b>
+  <input type="text" id="end" />
+</p>
+
+<p>
+  <b>Aggregate:</b>
+  <input type="text" id="agg" />
+</p>
+
+<p>
+  <b>Plotting Param:</b>
+  <input type="text" id="plot" /> 
+</p>
+<p>
+  <input type="button" value="Reload" onclick="reload()"/>
+</p>
 <canvas width="800" height="800">
 </canvas>
 
 <script type="text/javascript">
-var req = new XMLHttpRequest();
-req.onreadystatechange = function() {
-    if(req.readyState == 4)
-    {
-        var context = document.getElementsByTagName("canvas")[0].getContext('2d');
-        var points = eval(req.responseText);
-        for(var i = 0; i < points.size(); i++)
+//reload();
+
+function reload()
+{
+    var req = new XMLHttpRequest();
+    req.onreadystatechange = function() {
+        if(req.readyState == 4)
         {
-            var x = (parseFloat(points[i].los1) +5) * 5;
-            var y = (parseFloat(points[i].los2)+5) * 5;
-            var v = parseFloat(points[i].mrsa);
-            context.moveTo(x +5, y);
-            context.beginPath();
-            context.fillStyle = "rgb("+ v +",0,0)";
-            context.strokeStyle = "rgb("+ (v-50)+",0,0)";
-            context.arc(x, y, 5, 0, Math.PI*2, true);
-            context.fill();
-            context.stroke();
+            var context = document.getElementsByTagName("canvas")[0].getContext('2d');
+            context.clearRect(0,0,800,800);
+            var points = eval(req.responseText);
+            for(var i = 0; i < points.size(); i++)
+            {
+                var x = (parseFloat(points[i].los1) +5) * 15;
+                var y = (parseFloat(points[i].los2)+5) * 15;
+                var v = parseFloat(points[i].mrsa);
+                context.moveTo(x +5, y);
+                context.beginPath();
+                context.fillStyle = "rgb("+ v +",0,0)";
+                context.strokeStyle = "rgb("+ (v-50)+",0,0)";
+                context.arc(x, y, 5, 0, Math.PI*2, true);
+                context.fill();
+                context.stroke();
+            }
         }
     }
+    var params = "start=" + document.getElementById("start").value + "&end=" +
+            document.getElementById("end").value + "&plot=" +
+            document.getElementById("plot").value + "&agg="
+            document.getElementById("agg").value;
+    req.open("GET", "/results/vis/1.json?" + params, true);
+    req.send(null);
 }
-req.open("GET", "/results.json/?<%= params.to_query(nil) %>", true);
-req.send(null);
 </script>

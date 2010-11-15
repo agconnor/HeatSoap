@@ -5,7 +5,7 @@ development:
   database: mrsa 
   username: mrsa 
   password: mrsa 
-  host: localhost
+  host: skopelos.cs.pitt.edu
   pool: 5
   timeout: 5000
 
