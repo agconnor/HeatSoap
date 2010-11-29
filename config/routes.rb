@@ -13,7 +13,13 @@ Hs::Application.routes.draw do
   # Sample resource route (maps HTTP verbs to controller actions automatically):
   #   resources :products
   
+  match 'experiment/:id' => 'experiments#view'
+  match 'hospital/:id' => 'hospitals#view'
+  match 'results/experiment-:experiment-start-:start-end-:end-plot-:plot-aggregate-:aggregate' => 'results#vis'
+  
   resources :results
+  resources :hospitals
+  resources :experiments
 
   # Sample resource route with options:
   #   resources :products do

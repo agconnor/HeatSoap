@@ -1,0 +1,95 @@
+<script id="source" language="javascript" type="text/javascript"> 
+$(function () {
+    var options = {
+        lines: { show: false },
+        points: { show: true },
+        grid: {
+            show: true,
+            hoverable: true,
+            clickable: true
+        },
+        xaxis: {
+            tickDecimals: 0,
+            tickSize: 1,
+            tickFormatter: function(val,axis) {
+                return '<a class="x_label">'+val+'</a>';
+            },
+        },
+        yaxis: {
+            tickDecimals: 0,
+            tickSize: 10,
+        },
+        legend: {
+            container:$('#legend')
+        }
+    };
+    var los_pos_data = [];
+    var los_neg_data = [];
+    var capacity_data = [];
+    var flot_data = [];
+    var plot = $.plot($("#placeholder"), flot_data, options);
+    
+    $.getJSON('/hospitals.json', function(data, textStatus, xhr) {
+        $.each(data,function(index,value) {
+          var hospital = value['hospital'];
+          var x_label = hospital['id'];
+          los_pos_data.push([x_label,hospital['mean_los_pos']]);
+          los_neg_data.push([x_label,hospital['mean_los_neg']]);
+          capacity_data.push([x_label,hospital['capacity']]);
+        });
+        flot_data = [
+            {label:'Mean LoS Pos',data:los_pos_data},
+            {label:'Mean LoS Neg',data:los_neg_data},
+            {label:'Capacity',data:capacity_data}];
+        plot = $.plot($("#placeholder"), flot_data, options);
+    });
+    
+    $("#placeholder").mouseout(function() {
+        plot.unhighlight();
+    });
+    
+    $("#placeholder").bind("plothover", function (event, pos, item) {
+        plot.unhighlight();
+        var index = Math.round(pos.x-1);
+        if (index<0) return;
+        plot.highlight(0,index);
+        plot.highlight(1,index);
+        plot.highlight(2,index);
+    });
+    
+    $("#placeholder").bind("plotclick", function (event, pos, item) {
+        var index = Math.round(pos.x);
+        window.location = '/hospital/' + index;
+    });
+});
+</script> 
+
+<h2>Hospitals</h2>
+
+<div id="legend"></div>
+<div id="placeholder" style="width:600px;height:300px">
+<div style="width:50%;margin:auto;padding-top:150px;"><img src="/images/loading.gif" /></div>
+</div>
+
+<table>
+<thead>
+<tr>
+  <th>ID</th>
+  <th>Mean LoS Pos</th>
+  <th>Mean LoS Neg</th>
+  <th>Std Dev LoS Pos</th>
+  <th>Std Dev LoS Neg</th>
+  <th>Capacity</th>
+</tr>
+</thead>
+<% @hospitals.each do |hospital| %>
+<tr>
+<td><%=h hospital.id %></td>
+<td><%=h hospital.mean_los_pos %></td>
+<td><%=h hospital.mean_los_neg %></td>
+<td><%=h hospital.stddev_los_pos %></td>
+<td><%=h hospital.stddev_los_neg %></td>
+<td><%=h hospital.capacity %></td>
+</tr>
+<% end %>
+</table>

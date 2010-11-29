@@ -1,62 +1,151 @@
-<h1>HeatMap</h1>
+<h1>Results</h1>
 
 <p>
-  <b>Start Day:</b>
-  <input type="text" id="start" />
+  <b>Experiment:</b>
+  <div id="experiment_select_div">
+  <select id="experiment_select">
+    <% @experiments.each do |experiment| %>
+    <option value='<%=h experiment.id %>'><%=h experiment.to_json %></option>
+    <% end %>
+  </select>
+  </div>
 </p>
 
 <p>
-  <b>End Day:</b>
-  <input type="text" id="end" />
+  <b>Date Range:</b>
+  <div id="date_range_slider" style="margin-top:60px;margin-bottom:60px;width:600px;"></div>
 </p>
 
 <p>
   <b>Aggregate:</b>
-  <input type="text" id="agg" />
+  <div id="aggregate_radio">
+    <input type="radio" id="aggregate_avg" name="aggregate_option" value="avg" checked="checked" /><label for="aggregate_avg">Average</label>
+    <input type="radio" id="aggregate_max" name="aggregate_option" value="max" /><label for="aggregate_max">Maximum</label>
+    <input type="radio" id="aggregate_min" name="aggregate_option" value="min" /><label for="aggregate_min">Minimum</label>
+  </div>
 </p>
 
 <p>
-  <b>Plotting Param:</b>
-  <input type="text" id="plot" /> 
+  <b>Plotting Parameter:</b>
+  <div id="parameter_radio">
+    <input type="radio" id="parameter_los_pos" name="parameter_option" value="mean_los_pos" checked="checked" /><label for="parameter_los_pos">LoS Positive</label>
+    <input type="radio" id="parameter_los_neg" name="parameter_option" value="mean_los_neg" /><label for="parameter_los_neg">LoS Negative</label>
+    <input type="radio" id="parameter_capacity" name="parameter_option" value="capacity" /><label for="parameter_capacity">Capacity</label>
+  </div>
 </p>
 <p>
-  <input type="button" value="Reload" onclick="reload()"/>
+  <input type="button" value="Reload" id="reload" />
 </p>
-<canvas width="800" height="800">
-</canvas>
+
+<div id="legend"></div>
+<div id="placeholder" style="width:600px;height:300px">
+</div>
+
+<div style="display:none" id="loading" style="width:50%;margin:auto;padding-top:150px;"><img src="/images/loading.gif" /></div>
 
 <script type="text/javascript">
-//reload();
-
-function reload()
-{
-    var req = new XMLHttpRequest();
-    req.onreadystatechange = function() {
-        if(req.readyState == 4)
-        {
-            var context = document.getElementsByTagName("canvas")[0].getContext('2d');
-            context.clearRect(0,0,800,800);
-            var points = eval(req.responseText);
-            for(var i = 0; i < points.size(); i++)
-            {
-                var x = (parseFloat(points[i].los1) +5) * 15;
-                var y = (parseFloat(points[i].los2)+5) * 15;
-                var v = parseFloat(points[i].mrsa);
-                context.moveTo(x +5, y);
-                context.beginPath();
-                context.fillStyle = "rgb("+ v +",0,0)";
-                context.strokeStyle = "rgb("+ (v-50)+",0,0)";
-                context.arc(x, y, 5, 0, Math.PI*2, true);
-                context.fill();
-                context.stroke();
+$(function() {
+    var slider = $("#date_range_slider").slider({
+            range: true,
+            min: 1,
+            max: 700,
+            values: [75, 300],
+            slide: function(event, ui) {
+                $(ui.handle).qtip('api').updatePosition(event,false);
+                $(ui.handle).qtip('api').updateContent(ui.value,false);
+            },
+            change: function(event, ui) {
+                $(ui.handle).qtip('api').updatePosition(event,false);
             }
+    });
+    
+    $(".ui-slider-handle:first").qtip({
+        content: {text:'75'},
+        position: {corner: {target: 'topMiddle', tooltip: 'bottomMiddle'}},
+        style: {tip: 'bottomMiddle'},
+        show: { ready:true,delay: 0},
+        hide: { when:false}
+    });
+    $(".ui-slider-handle:last").qtip({
+        content: {text:'350'},
+        position: {corner: {target: 'bottomMiddle', tooltip: 'topMiddle'}},
+        style: {tip: 'topMiddle'},
+        show: { ready:true,delay: 0},
+        hide: { when:false}
+    });
+    
+    var aggregate = $('#aggregate_radio').buttonset();
+    var parameter = $('#parameter_radio').buttonset();
+    
+    $('#experiment_select').selectmenu({
+        style:'popup',
+        width:600,
+        format: function(json) {
+            var experiment = $.parseJSON(json).experiment;
+            return '<span class="ui-selectmenu-item-header">'+experiment.id+'. '+experiment.title+'</span>'
+                  +'<span class="ui-selectmenu-item-content">'+experiment.description+'</span>'
+                  +'<span class="ui-selectmenu-item-content">'+experiment.los_rule+'</span>';
         }
-    }
-    var params = "start=" + document.getElementById("start").value + "&end=" +
-            document.getElementById("end").value + "&plot=" +
-            document.getElementById("plot").value + "&agg="
-            document.getElementById("agg").value;
-    req.open("GET", "/results/vis/1.json?" + params, true);
-    req.send(null);
-}
+    });
+    
+    $(".ui-slider-handle:first").qtip('api').updatePosition(false,true);
+    $(".ui-slider-handle:last").qtip('api').updatePosition(false,true);
+    
+});
+
+$('#reload').click(function(){
+    $("#placeholder").append($("#loading").show());
+    var experiment = $("#experiment_select").val();
+    var start = $("#date_range_slider").slider('values',0);
+    var end = $("#date_range_slider").slider('values',1);
+    var aggregate = $('input[name=aggregate_option]:checked').val();
+    var parameter = $('input[name=parameter_option]:checked').val();
+    
+    var options = {
+        lines: { show: false },
+        points: { show: true },
+        grid: {
+            tickColor: "rgba(0,0,0,0)",
+            borderWidth: 0,
+            hoverable: true,
+            clickable: true
+        },
+        xaxis: {
+            tickDecimals: 0,
+            tickSize: 10,
+            min: 0,
+            max: 100
+        },
+        yaxis: {
+            tickDecimals: 0,
+            tickSize: 10,
+            min: 0,
+            max: 100
+        },
+        legend: {
+            container:$('#legend')
+        }
+    };
+    var flot_data = [{label:aggregate+' '+parameter,data:[]}];
+    var plot;
+    
+    var url = '/results/'
+            + 'experiment-' + experiment
+            + '-start-' + start
+            + '-end-' + end
+            + '-plot-' + parameter
+            + '-aggregate-' + aggregate
+            + '.json';
+    
+    $("#placeholder").after($("#loading").hide());
+    $.getJSON(url, function(data, textStatus, xhr) {
+        $.each(data,function(index,value) {
+          var result = value.result;
+          flot_data[0].data.push([result.los1,result.los2]);
+        });
+        plot = $.plot($("#placeholder"), flot_data, options);
+    });
+});
+
+
 </script>

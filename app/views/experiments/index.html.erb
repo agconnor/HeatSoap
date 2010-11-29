@@ -1,0 +1,27 @@
+<h2>Experiments</h2>
+<table>
+<thead>
+<tr>
+  <th>ID</th>
+  <th>User ID</th>
+  <th>Title</th>
+  <th>Description</th>
+  <th>LoS Rule</th>
+  <th>Pref</th>
+  <th>Delay Mode</th>
+  <th>Deleted</th>
+</tr>
+</thead>
+<% @experiments.each do |experiment| %>
+<tr>
+<td><%=h experiment.id %></td>
+<td><%=h experiment.user_id %></td>
+<td><%=h experiment.title %></td>
+<td><%=h experiment.description %></td>
+<td><%=h experiment.los_rule %></td>
+<td><%=h experiment.pref %></td>
+<td><%=h experiment.delay_mode %></td>
+<td><%=h experiment.deleted %></td>
+</tr>
+<% end %>
+</table>

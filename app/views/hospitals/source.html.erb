@@ -1,0 +1,23 @@
+<h2><%=h @source.id %></h2>
+<table>
+<thead>
+<tr>
+  <td>Target ID</td>
+  <td>Mean MRSA</td>
+  <td>Min MRSA</td>
+  <td>Max MRSA</td>
+  <td>Std Dev MRSA</td>
+  <td># Experiments</td>
+</tr>
+</thead>
+<% @results.each do |result| %>
+<tr>
+  <td><%=h result.target_id %></td>
+  <td><%=h result.mean %></td>
+  <td><%=h result.min %></td>
+  <td><%=h result.max %></td>
+  <td><%=h result.std %></td>
+  <td><%=h result.count %></td>
+</tr>
+<% end %>
+</table>

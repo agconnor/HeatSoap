@@ -1,0 +1,15 @@
+{
+    source_id:<%=h @source.id %>,
+    results:[
+    <% @results.each do |result| %>
+    {
+        target_id:<%=h result.target_id %>,
+        mean:<%=h result.mean %>,
+        min:<%=h result.min %>,
+        max:<%=h result.max %>,
+        std:<%=h result.std %>,
+        count:<%=h result.count %>,
+    },
+    <% end %>
+    ]
+}

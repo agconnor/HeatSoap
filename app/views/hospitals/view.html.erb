@@ -1,0 +1,19 @@
+<h2>Hospital <%=h @hospital.id %></h2>
+<table>
+<thead>
+<tr>
+  <td>Mean LoS Pos</td>
+  <td>Mean LoS Neg</td>
+  <td>Std Dev LoS Pos</td>
+  <td>Std Dev LoS Neg</td>
+  <td>Capacity</td>
+</tr>
+</thead>
+<tr>
+<td><%=h @hospital.mean_los_pos %></td>
+<td><%=h @hospital.mean_los_neg %></td>
+<td><%=h @hospital.stddev_los_pos %></td>
+<td><%=h @hospital.stddev_los_neg %></td>
+<td><%=h @hospital.capacity %></td>
+</tr>
+</table>
