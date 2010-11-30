@@ -46,12 +46,15 @@ $(function () {
     
     $("#placeholder").mouseout(function() {
         plot.unhighlight();
+        $('.x_label').css('font-weight','normal');
     });
     
     $("#placeholder").bind("plothover", function (event, pos, item) {
         plot.unhighlight();
+        $('.x_label').css('font-weight','normal');
         var index = Math.round(pos.x-1);
         if (index<0) return;
+        $($('.x_label')[index]).css('font-weight','bold');
         plot.highlight(0,index);
         plot.highlight(1,index);
         plot.highlight(2,index);

@@ -1,4 +1,6 @@
 class ResultsController < ApplicationController
+  caches_page :vis
+  
   def index
     @experiments = Experiment.all
     respond_to do |format|

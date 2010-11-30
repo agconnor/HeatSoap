@@ -103,7 +103,16 @@ $('#reload').click(function(){
     
     var options = {
         lines: { show: false },
-        points: { show: true },
+        points: {
+            show: true,
+            colorCallback: function(series) {
+                return function(point) {
+                    // Given the base series color and a point.
+                    // Output the modified color to display.
+                    return series.color;
+                }
+            }
+        },
         grid: {
             tickColor: "rgba(0,0,0,0)",
             borderWidth: 0,
@@ -126,6 +135,7 @@ $('#reload').click(function(){
             container:$('#legend')
         }
     };
+    
     var flot_data = [{label:aggregate+' '+parameter,data:[]}];
     var plot;
     
