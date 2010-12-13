@@ -1525,7 +1525,7 @@
         }
 
         function drawSeriesPoints(series) {
-            function plotPoints(datapoints, radius, strokeStyleFn, fillStyle, offset, circumference, axisx, axisy) {
+            function plotPoints(datapoints, radius, strokeStyleFn, fillStyleFn, offset, circumference, axisx, axisy) {
                 var points = datapoints.points, ps = datapoints.pointsize;
                 
                 for (var i = 0; i < points.length; i += ps) {
@@ -1533,13 +1533,11 @@
                     if (x == null || x < axisx.min || x > axisx.max || y < axisy.min || y > axisy.max)
                         continue;
                     
+                    ctx.fillStyle = fillStyleFn(i/ps);
                     ctx.strokeStyle = strokeStyleFn(i/ps);
                     ctx.beginPath();
                     ctx.arc(axisx.p2c(x), axisy.p2c(y) + offset, radius, 0, circumference, false);
-                    if (fillStyle) {
-                        ctx.fillStyle = fillStyle;
-                        ctx.fill();
-                    }
+                    ctx.fill();
                     ctx.stroke();
                 }
             }
@@ -1550,24 +1548,26 @@
             var lw = series.lines.lineWidth,
                 sw = series.shadowSize,
                 radius = series.points.radius;
+            /*
             if (lw > 0 && sw > 0) {
                 // draw shadow in two steps
                 var w = sw / 2;
                 ctx.lineWidth = w;
-                strokeStyleFn = function(point){return "rgba(0,0,0,0.1)";};
-                plotPoints(series.datapoints, radius, strokeStyleFn, null, w + w/2, Math.PI,
+                fillStyleFn = function(point){return "rgba(0,0,0,0.1)";};
+                plotPoints(series.datapoints, radius, null, fillStyleFn, w + w/2, Math.PI,
                            series.xaxis, series.yaxis);
 
-                strokeStyleFn = function(point){return "rgba(0,0,0,0.2)";};
-                plotPoints(series.datapoints, radius, strokeStyleFn, null, w/2, Math.PI,
+                fillStyleFn = function(point){return "rgba(0,0,0,0.2)";};
+                plotPoints(series.datapoints, radius, null, fillStyleFn, w/2, Math.PI,
                            series.xaxis, series.yaxis);
             }
+            */
 
             ctx.lineWidth = lw;
+            fillStyleFn = series.points.colorCallback(series) || function(point){return series.color;};
             strokeStyleFn = series.points.colorCallback(series) || function(point){return series.color;};
-            fillStyle = "rgba(0,0,0,0.0)";
             plotPoints(series.datapoints, radius,
-                       strokeStyleFn, fillStyle, 0, 2 * Math.PI,
+                       strokeStyleFn, fillStyleFn, 0, 2 * Math.PI,
                        series.xaxis, series.yaxis);
             ctx.restore();
         }

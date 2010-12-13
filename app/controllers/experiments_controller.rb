@@ -1,6 +1,4 @@
 class ExperimentsController < ApplicationController
-  caches_page :index
-  caches_page :view
   
   def index
     @experiments = Experiment.all()

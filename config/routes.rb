@@ -13,13 +13,16 @@ Hs::Application.routes.draw do
   # Sample resource route (maps HTTP verbs to controller actions automatically):
   #   resources :products
   
-  match 'experiment/:id' => 'experiments#view'
-  match 'hospital/:id' => 'hospitals#view'
-  match 'results/experiment-:experiment-start-:start-end-:end-plot-:plot-aggregate-:aggregate' => 'results#vis'
   
-  resources :results
-  resources :hospitals
-  resources :experiments
+  match 'hospitals' => 'hospitals#index'
+  match 'hospital/:id' => 'hospitals#view'
+  
+  match ':experiment_id/results/aggregate/:start-:end' => 'results#vis'
+  match ':experiment_id/results/view/:source_id-:target_id' => 'results#view'
+  match ':experiment_id/results' => 'results#index'
+  
+  match ':experiment_id' => 'results#index'
+  root :to => 'experiments#index'
 
   # Sample resource route with options:
   #   resources :products do
@@ -62,5 +65,5 @@ Hs::Application.routes.draw do
 
   # This is a legacy wild controller route that's not recommended for RESTful applications.
   # Note: This route will make all actions in every controller accessible via GET requests.
-  match ':controller(/:action(/:id(.:format)))'
+  # match ':controller(/:action(/:id(.:format)))'
 end

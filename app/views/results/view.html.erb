@@ -1,0 +1,64 @@
+<h1>Results</h1>
+
+<div id="legend"></div>
+<div id="placeholder" style="width:600px;height:600px;">
+</div>
+
+<div style="display:none" id="loading" style="width:50%;margin:auto;padding-top:150px;"><img src="/images/loading.gif" /></div>
+
+<script type="text/javascript">
+
+var flot_data;
+var results;
+var plot;
+
+$(function() {
+    
+    $("#placeholder").bind("plothover", function (event, pos, item) {
+    });
+    
+    $("#placeholder").bind("plotclick", function (event, pos, item) {
+    });
+    
+    $("#placeholder").append($("#loading").show());
+    
+    var options = {
+        series: {
+          radius: 1
+        },
+        points: {
+            show: false,
+            shadowSize: 0,
+            lineWidth: 1,
+            radius:1
+        },
+        grid: {
+            tickColor: "rgba(0,0,0,0)",
+            borderWidth: 0,
+            hoverable: true,
+            clickable: true
+        },
+        legend: {
+            container:$('#legend')
+        }
+    };
+    
+    flot_data = [{label:'mrsa',data:[]}];
+    
+    var url = window.location + '.json';
+    
+    $("#placeholder").after($("#loading").hide());
+    $.getJSON(url, function(data, textStatus, xhr) {
+        results = [];
+        $.each(data,function(index,value) {
+            results[index] = value.result;
+            flot_data[0].data.push([
+                value.result.timestep,
+                value.result.mrsa
+            ]);
+        });
+        plot = $.plot($("#placeholder"), flot_data, options);
+    });
+});
+
+</script>

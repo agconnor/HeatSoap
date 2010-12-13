@@ -1,19 +1,8 @@
 <h1>Results</h1>
 
 <p>
-  <b>Experiment:</b>
-  <div id="experiment_select_div">
-  <select id="experiment_select">
-    <% @experiments.each do |experiment| %>
-    <option value='<%=h experiment.id %>'><%=h experiment.to_json %></option>
-    <% end %>
-  </select>
-  </div>
-</p>
-
-<p>
   <b>Date Range:</b>
-  <div id="date_range_slider" style="margin-top:60px;margin-bottom:60px;width:600px;"></div>
+  <div id="date_range_slider" style="margin-top:60px;margin-bottom:60px;width:800px;"></div>
 </p>
 
 <p>
@@ -26,24 +15,54 @@
 </p>
 
 <p>
-  <b>Plotting Parameter:</b>
-  <div id="parameter_radio">
-    <input type="radio" id="parameter_los_pos" name="parameter_option" value="mean_los_pos" checked="checked" /><label for="parameter_los_pos">LoS Positive</label>
-    <input type="radio" id="parameter_los_neg" name="parameter_option" value="mean_los_neg" /><label for="parameter_los_neg">LoS Negative</label>
-    <input type="radio" id="parameter_capacity" name="parameter_option" value="capacity" /><label for="parameter_capacity">Capacity</label>
+  <b>X-Axis Plotting Parameter:</b>
+  <div id="x_parameter_radio">
+    <input type="radio" id="x_parameter_index" name="x_parameter_option" value="id" /><label for="x_parameter_index">Index</label>
+    <input type="radio" id="x_parameter_los_pos" name="x_parameter_option" value="mean_los_pos" checked="checked" /><label for="x_parameter_los_pos">LoS Positive</label>
+    <input type="radio" id="x_parameter_los_neg" name="x_parameter_option" value="mean_los_neg" /><label for="x_parameter_los_neg">LoS Negative</label>
+    <input type="radio" id="x_parameter_capacity" name="x_parameter_option" value="capacity" /><label for="x_parameter_capacity">Capacity</label>
   </div>
 </p>
+
 <p>
-  <input type="button" value="Reload" id="reload" />
+  <b>Y-Axis Plotting Parameter:</b>
+  <div id="y_parameter_radio">
+    <input type="radio" id="y_parameter_index" name="y_parameter_option" value="id" /><label for="y_parameter_index">Index</label>
+    <input type="radio" id="y_parameter_los_pos" name="y_parameter_option" value="mean_los_pos" checked="checked" /><label for="y_parameter_los_pos">LoS Positive</label>
+    <input type="radio" id="y_parameter_los_neg" name="y_parameter_option" value="mean_los_neg" /><label for="y_parameter_los_neg">LoS Negative</label>
+    <input type="radio" id="y_parameter_capacity" name="y_parameter_option" value="capacity" /><label for="y_parameter_capacity">Capacity</label>
+  </div>
 </p>
 
+<div id="source_qtip" style="position:absolute"></div>
+<div id="target_qtip" style="position:absolute"></div>
 <div id="legend"></div>
-<div id="placeholder" style="width:600px;height:300px">
+<div id="placeholder" style="width:600px;height:600px;">
 </div>
 
 <div style="display:none" id="loading" style="width:50%;margin:auto;padding-top:150px;"><img src="/images/loading.gif" /></div>
 
 <script type="text/javascript">
+
+var hospitals = <%= raw @hospitals.to_json %>;
+var hospital_count = hospitals.length;
+var flot_data;
+var results;
+var plot;
+var current_item;
+var offsetX;
+var offsetY;
+var colors = [
+    "rgba(204,204,255,0.6)",
+    "rgba(163,163,255,0.6)",
+    "rgba(122,122,255,0.6)",
+    "rgba(82,82,255,0.6)",
+    "rgba(41,41,255,0.6)",
+    "rgba(0,0,204,0.6)",
+    "rgba(0,0,163,0.6)"
+];
+var colorstep = function(mrsa){return 0};
+
 $(function() {
     var slider = $("#date_range_slider").slider({
             range: true,
@@ -56,6 +75,7 @@ $(function() {
             },
             change: function(event, ui) {
                 $(ui.handle).qtip('api').updatePosition(event,false);
+                reload();
             }
     });
     
@@ -66,6 +86,7 @@ $(function() {
         show: { ready:true,delay: 0},
         hide: { when:false}
     });
+    
     $(".ui-slider-handle:last").qtip({
         content: {text:'350'},
         position: {corner: {target: 'bottomMiddle', tooltip: 'topMiddle'}},
@@ -74,88 +95,157 @@ $(function() {
         hide: { when:false}
     });
     
-    var aggregate = $('#aggregate_radio').buttonset();
-    var parameter = $('#parameter_radio').buttonset();
+    $('#aggregate_radio').buttonset().change(redraw);
+    $('#x_parameter_radio').buttonset().change(redraw);
+    $('#y_parameter_radio').buttonset().change(redraw);
     
-    $('#experiment_select').selectmenu({
-        style:'popup',
-        width:600,
-        format: function(json) {
-            var experiment = $.parseJSON(json).experiment;
-            return '<span class="ui-selectmenu-item-header">'+experiment.id+'. '+experiment.title+'</span>'
-                  +'<span class="ui-selectmenu-item-content">'+experiment.description+'</span>'
-                  +'<span class="ui-selectmenu-item-content">'+experiment.los_rule+'</span>';
+    $(".ui-slider-handle:first").qtip('api').updatePosition(false,false);
+    $(".ui-slider-handle:last").qtip('api').updatePosition(false,false);
+    
+    $("#source_qtip").qtip({
+        position: {corner: {target: 'topMiddle', tooltip: 'bottomMiddle'}},
+        style: {tip: 'bottomMiddle'},
+        show: { ready:true,delay: 0},
+        hide: { when:false}
+    });
+    
+    $("#target_qtip").qtip({
+        position: {corner: {target: 'rightMiddle', tooltip: 'leftMiddle'}},
+        style: {tip: 'leftMiddle'},
+        show: { ready:true,delay: 0},
+        hide: { when:false}
+    });
+    
+    $("#placeholder").bind("plothover", function (event, pos, item) {
+        if (!item) return;
+        if (!current_item || current_item.dataIndex != item.dataIndex) {
+            current_item = item;
+            
+            plot.unhighlight();
+            for (var i=0; i<hospital_count; i++) {
+                plot.highlight(item.series, i+hospital_count*Math.floor(item.dataIndex/hospital_count));
+                plot.highlight(item.series, i*hospital_count+item.dataIndex%hospital_count);
+            }
+            var source_id = results[item.dataIndex].result.source_id;
+            var target_id = results[item.dataIndex].result.target_id;
+            
+
+            $('#source_qtip').position({
+                my: 'bottom',
+                at: 'left top',
+                of: $("#placeholder"),
+                offset: (item.pageX-offsetX)+' 0'
+            });
+            
+            $('#target_qtip').position({
+                my: 'left',
+                at: 'right top',
+                of: $("#placeholder"),
+                offset: '0 '+(item.pageY-offsetY)
+            });
+            
+            $('#source_qtip').qtip('api').updatePosition(false,false);
+            $('#source_qtip').qtip('api').updateContent(source_id,false);
+            
+            $('#target_qtip').qtip('api').updatePosition(false,false);
+            $('#target_qtip').qtip('api').updateContent(target_id,false);
         }
     });
     
-    $(".ui-slider-handle:first").qtip('api').updatePosition(false,true);
-    $(".ui-slider-handle:last").qtip('api').updatePosition(false,true);
+    $("#placeholder").bind("plotclick", function (event, pos, item) {
+        if (!item) return;
+        var source_id = results[item.dataIndex].result.source_id;
+        var target_id = results[item.dataIndex].result.target_id;
+        
+        window.location = '/' + <%= params[:experiment_id] %> + '/results/view/' + source_id + '-' + target_id;
+    });
     
+    reload();
 });
 
-$('#reload').click(function(){
+var reload = function() {
     $("#placeholder").append($("#loading").show());
-    var experiment = $("#experiment_select").val();
+    
     var start = $("#date_range_slider").slider('values',0);
     var end = $("#date_range_slider").slider('values',1);
+    
+    var url = '/' + <%= params[:experiment_id] %> + '/results/aggregate/'
+            + start + '-' + end + '.json';
+    
+    $.getJSON(url, function(data, textStatus, xhr) {
+        results = data;
+        redraw();
+        $("#placeholder").after($("#loading").hide());
+    });
+}
+
+function redraw() {
     var aggregate = $('input[name=aggregate_option]:checked').val();
-    var parameter = $('input[name=parameter_option]:checked').val();
+    var x_parameter = $('input[name=x_parameter_option]:checked').val();
+    var y_parameter = $('input[name=y_parameter_option]:checked').val();
+    
+    console.log("redrawing aggregate:"+aggregate+" x_parameter:"+x_parameter+" y_parameter:"+y_parameter);
     
     var options = {
-        lines: { show: false },
+        colors: [colors[5]],
+        lines: {
+            show: false,
+            lineWidth: 0
+        },
         points: {
             show: true,
             colorCallback: function(series) {
                 return function(point) {
                     // Given the base series color and a point.
                     // Output the modified color to display.
-                    return series.color;
+                    return colors[colorstep(results[point].result[aggregate])];
                 }
-            }
+            },
+            shadowSize: 0,
+            lineWidth: 0,
+            radius: 2
         },
         grid: {
             tickColor: "rgba(0,0,0,0)",
             borderWidth: 0,
+            mouseActiveRadius: 150,
             hoverable: true,
             clickable: true
         },
         xaxis: {
-            tickDecimals: 0,
-            tickSize: 10,
-            min: 0,
-            max: 100
+            tickDecimals: 0
         },
         yaxis: {
-            tickDecimals: 0,
-            tickSize: 10,
-            min: 0,
-            max: 100
+            tickDecimals: 0
         },
         legend: {
             container:$('#legend')
         }
     };
     
-    var flot_data = [{label:aggregate+' '+parameter,data:[]}];
-    var plot;
-    
-    var url = '/results/'
-            + 'experiment-' + experiment
-            + '-start-' + start
-            + '-end-' + end
-            + '-plot-' + parameter
-            + '-aggregate-' + aggregate
-            + '.json';
-    
-    $("#placeholder").after($("#loading").hide());
-    $.getJSON(url, function(data, textStatus, xhr) {
-        $.each(data,function(index,value) {
-          var result = value.result;
-          flot_data[0].data.push([result.los1,result.los2]);
-        });
-        plot = $.plot($("#placeholder"), flot_data, options);
+    flot_data = [{label:aggregate,data:[]}];
+    $.each(results,function(index,value) {
+        flot_data[0].data.push([
+            hospitals[value.result.source_id-1].hospital[x_parameter],
+            hospitals[value.result.target_id-1].hospital[y_parameter]
+        ]);
     });
-});
+    
+    var steps = [];
+    for (var i=1; i<=7; i++) {
+        steps[i-1] = results[Math.floor(i*results.length/7)-1].result[aggregate];
+    }
 
+    colorstep = function(mrsa) {
+        for(var i=0; i<7; i++) {
+            if (mrsa<steps[i]) return i;
+        }
+        return 6;
+    };
+    
+    plot = $.plot($("#placeholder"), flot_data, options);
+    offsetX = plot.offset().left;
+    offsetY = plot.offset().top;
+};
 
 </script>
