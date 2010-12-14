@@ -34,11 +34,44 @@
   </div>
 </p>
 
-<div id="source_qtip" style="position:absolute"></div>
-<div id="target_qtip" style="position:absolute"></div>
-<div id="legend"></div>
-<div id="placeholder" style="width:600px;height:600px;">
-</div>
+<table id="source_info" style="float:left;width:800px;border:1px solid #e6e6e6">
+<tr>
+    <th style="text-align:center">&harr;/&varr;</th>
+    <th style="text-align:center">ID</th>
+    <th style="text-align:center">Abbr</th>
+    <th style="text-align:right">Capacity</th>
+    <th style="text-align:right">LoS Pos Mean</th>
+    <th style="text-align:right">LoS Pos Std Dev</th>
+    <th style="text-align:right">LoS Neg Mean</th>
+    <th style="text-align:right">LoS Neg Std Dev</th>
+</tr>
+</thead>
+<% @hospitals.each do |hospital| %>
+<tr>
+    <td style="text-align:center"></td>
+    <td style="text-align:center"><%=h hospital.id %></td>
+    <td style="text-align:center"><%=h hospital.abbr %></td>
+    <td style="text-align:right"><%=h hospital.capacity %></td>
+    <td style="text-align:right"><%=h "%.4f"%hospital.mean_los_pos %></td>
+    <td style="text-align:right"><%=h "%.4f"%hospital.stddev_los_pos %></td>
+    <td style="text-align:right"><%=h "%.4f"%hospital.mean_los_neg %></td>
+    <td style="text-align:right"><%=h "%.4f"%hospital.stddev_los_neg %></td>
+</tr>
+<% end %>
+</table>
+<div id="placeholder" style="float:left;width:600px;height:600px;"></div>
+
+<ul id="myMenu" class="contextMenu">
+    <li class="details">
+        <a href="#details">View Details</a>
+    </li>
+    <li class="delete remove_row separator">
+        <a href="#remove_row">Remove Row</a>
+    </li>
+    <li class="delete remove_col">
+        <a href="#remove_col">Remove Column</a>
+    </li>
+</ul>
 
 <div style="display:none" id="loading" style="width:50%;margin:auto;padding-top:150px;"><img src="/images/loading.gif" /></div>
 
@@ -46,12 +79,14 @@
 
 var hospitals = <%= raw @hospitals.to_json %>;
 var hospital_count = hospitals.length;
+var x_hospitals = <%= raw Array.new(@hospitals.length).fill(true).to_json %>;
+var x_hospital_count = hospitals.length;
+var y_hospitals = <%= raw Array.new(@hospitals.length).fill(true).to_json %>;
+var y_hospital_count = hospitals.length;
 var flot_data;
 var results;
 var plot;
 var current_item;
-var offsetX;
-var offsetY;
 var colors = [
     "rgba(204,204,255,0.6)",
     "rgba(163,163,255,0.6)",
@@ -62,6 +97,22 @@ var colors = [
     "rgba(0,0,163,0.6)"
 ];
 var colorstep = function(mrsa){return 0};
+
+function result_from_index(index) {
+    var row = Math.floor(index/x_hospital_count);
+    var col = index%y_hospital_count;
+    for (i=0; i<=row; i++) {
+        if (!x_hospitals[i]) {
+            row++;
+        }
+    }
+    for (i=0; i<=col; i++) {
+        if (!y_hospitals[i]) {
+            col++;
+        }
+    }
+    return results[row*hospital_count+col].result;
+}
 
 $(function() {
     var slider = $("#date_range_slider").slider({
@@ -102,62 +153,64 @@ $(function() {
     $(".ui-slider-handle:first").qtip('api').updatePosition(false,false);
     $(".ui-slider-handle:last").qtip('api').updatePosition(false,false);
     
-    $("#source_qtip").qtip({
-        position: {corner: {target: 'topMiddle', tooltip: 'bottomMiddle'}},
-        style: {tip: 'bottomMiddle'},
-        show: { ready:true,delay: 0},
-        hide: { when:false}
-    });
-    
-    $("#target_qtip").qtip({
-        position: {corner: {target: 'rightMiddle', tooltip: 'leftMiddle'}},
-        style: {tip: 'leftMiddle'},
-        show: { ready:true,delay: 0},
-        hide: { when:false}
-    });
-    
+    $("#placeholder").contextMenu({
+        menu: 'myMenu'
+    },
+    function(action, el, pos) {
+        var result = result_from_index(current_item.dataIndex);
+        var source_id = result.source_id;
+        var target_id = result.target_id;
+        switch(action) {
+        case 'details':
+            window.location = '/' + <%= params[:experiment_id] %> + '/results/view/' + source_id + '-' + target_id;
+        break;
+        case 'remove_col':
+            x_hospitals[source_id-1] = false;
+            x_hospital_count--;
+            redraw();
+        break;
+        case 'remove_row':
+            y_hospitals[target_id-1] = false;
+            y_hospital_count--;
+            redraw();
+        break;
+    }
+});
+
     $("#placeholder").bind("plothover", function (event, pos, item) {
         if (!item) return;
         if (!current_item || current_item.dataIndex != item.dataIndex) {
             current_item = item;
             
             plot.unhighlight();
-            for (var i=0; i<hospital_count; i++) {
-                plot.highlight(item.series, i+hospital_count*Math.floor(item.dataIndex/hospital_count));
-                plot.highlight(item.series, i*hospital_count+item.dataIndex%hospital_count);
+            $('#source_info tr:odd').css('background-color','#d9d9d9');
+            $('#source_info tr:even').css('background-color','#ffffff');
+            $('#source_info tr:gt(0) td:nth-child(1)').html('');
+            
+            var row = Math.floor(item.dataIndex/y_hospital_count);
+            var col = item.dataIndex%y_hospital_count;
+            var start_row = y_hospital_count*row;
+            for (var i=0; i<y_hospital_count; i++) {
+                plot.highlight(item.series, i+start_row);
             }
-            var source_id = results[item.dataIndex].result.source_id;
-            var target_id = results[item.dataIndex].result.target_id;
+            for (var i=0; i<x_hospital_count; i++) {
+                plot.highlight(item.series, i*y_hospital_count+col);
+            }
             
-
-            $('#source_qtip').position({
-                my: 'bottom',
-                at: 'left top',
-                of: $("#placeholder"),
-                offset: (item.pageX-offsetX)+' 0'
-            });
-            
-            $('#target_qtip').position({
-                my: 'left',
-                at: 'right top',
-                of: $("#placeholder"),
-                offset: '0 '+(item.pageY-offsetY)
-            });
-            
-            $('#source_qtip').qtip('api').updatePosition(false,false);
-            $('#source_qtip').qtip('api').updateContent(source_id,false);
-            
-            $('#target_qtip').qtip('api').updatePosition(false,false);
-            $('#target_qtip').qtip('api').updateContent(target_id,false);
+            var result = result_from_index(current_item.dataIndex);
+            var source_id = result.source_id;
+            var target_id = result.target_id;
+            if (source_id != target_id) {
+                $('#source_info tr:eq('+source_id+')').css('background-color','#d9d9f2');
+                $('#source_info tr:eq('+source_id+') td:eq(0)').html('&harr;');
+                $('#source_info tr:eq('+target_id+')').css('background-color','#d9f2d9');
+                $('#source_info tr:eq('+target_id+') td:eq(0)').html('&varr;');
+            }
+            else {
+                $('#source_info tr:eq('+source_id+')').css('background-color','#d9f2f2');
+                $('#source_info tr:eq('+source_id+') td:eq(0)').html('&harr;&varr;');
+            }
         }
-    });
-    
-    $("#placeholder").bind("plotclick", function (event, pos, item) {
-        if (!item) return;
-        var source_id = results[item.dataIndex].result.source_id;
-        var target_id = results[item.dataIndex].result.target_id;
-        
-        window.location = '/' + <%= params[:experiment_id] %> + '/results/view/' + source_id + '-' + target_id;
     });
     
     reload();
@@ -179,15 +232,15 @@ var reload = function() {
     });
 }
 
-function redraw() {
+var redraw = function() {
     var aggregate = $('input[name=aggregate_option]:checked').val();
     var x_parameter = $('input[name=x_parameter_option]:checked').val();
     var y_parameter = $('input[name=y_parameter_option]:checked').val();
     
-    console.log("redrawing aggregate:"+aggregate+" x_parameter:"+x_parameter+" y_parameter:"+y_parameter);
+    sort_hospitals();
     
     var options = {
-        colors: [colors[5]],
+        colors: [colors[3]],
         lines: {
             show: false,
             lineWidth: 0
@@ -198,7 +251,8 @@ function redraw() {
                 return function(point) {
                     // Given the base series color and a point.
                     // Output the modified color to display.
-                    return colors[colorstep(results[point].result[aggregate])];
+                    var result = result_from_index(point);
+                    return colors[colorstep(result[aggregate])];
                 }
             },
             shadowSize: 0,
@@ -219,16 +273,18 @@ function redraw() {
             tickDecimals: 0
         },
         legend: {
-            container:$('#legend')
+            show: false
         }
     };
     
     flot_data = [{label:aggregate,data:[]}];
     $.each(results,function(index,value) {
-        flot_data[0].data.push([
-            hospitals[value.result.source_id-1].hospital[x_parameter],
-            hospitals[value.result.target_id-1].hospital[y_parameter]
-        ]);
+        if (x_hospitals[value.result.source_id-1] && y_hospitals[value.result.target_id-1]) {
+            flot_data[0].data.push([
+                hospitals[value.result.source_id-1].hospital[x_parameter],
+                hospitals[value.result.target_id-1].hospital[y_parameter]
+            ]);
+        }
     });
     
     var steps = [];
@@ -244,8 +300,39 @@ function redraw() {
     };
     
     plot = $.plot($("#placeholder"), flot_data, options);
-    offsetX = plot.offset().left;
-    offsetY = plot.offset().top;
+    
 };
+
+var sort_hospitals = function() {
+    var y_parameter = $('input[name=y_parameter_option]:checked').val();
+    // selection sort. whatever. it's 5am.
+    var max_j;
+    var max;
+    var tmp;
+    for (var i=0; i<hospital_count; i++) {
+        min_j = i;
+        min = hospitals[i].hospital[y_parameter];
+        for (var j=i+1; j<hospital_count; j++) {
+            if (min > hospitals[j].hospital[y_parameter]) {
+                min_j = j;
+                min = hospitals[j].hospital[y_parameter]
+            }
+        }
+        if (min!=min_j) {
+            tmp = hospitals[i];
+            hospitals[i] = hospitals[min_j];
+            hospitals[min_j] = tmp;
+            tmp = x_hospitals[i];
+            x_hospitals[i] = x_hospitals[min_j];
+            x_hospitals[min_j] = tmp;
+            tmp = y_hospitals[i];
+            y_hospitals[i] = y_hospitals[min_j];
+            y_hospitals[min_j] = tmp;
+        }
+    }
+    
+    $('#source_info tr:odd').css('background-color','#d9d9d9');
+    $('#source_info tr:even').css('background-color','#ffffff');
+}
 
 </script>
