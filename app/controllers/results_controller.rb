@@ -4,6 +4,7 @@ class ResultsController < ApplicationController
   
   def index
     @hospitals = Hospital.all
+    @row_mapping = Hospital.get_row_mapping
     respond_to do |format|
       format.html
       format.json { render :json => @hospitals.to_json }

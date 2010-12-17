@@ -19,7 +19,6 @@
   <div id="x_parameter_radio">
     <input type="radio" id="x_parameter_index" name="x_parameter_option" value="id" /><label for="x_parameter_index">Index</label>
     <input type="radio" id="x_parameter_los_pos" name="x_parameter_option" value="mean_los_pos" checked="checked" /><label for="x_parameter_los_pos">LoS Positive</label>
-    <input type="radio" id="x_parameter_los_neg" name="x_parameter_option" value="mean_los_neg" /><label for="x_parameter_los_neg">LoS Negative</label>
     <input type="radio" id="x_parameter_capacity" name="x_parameter_option" value="capacity" /><label for="x_parameter_capacity">Capacity</label>
   </div>
 </p>
@@ -29,37 +28,30 @@
   <div id="y_parameter_radio">
     <input type="radio" id="y_parameter_index" name="y_parameter_option" value="id" /><label for="y_parameter_index">Index</label>
     <input type="radio" id="y_parameter_los_pos" name="y_parameter_option" value="mean_los_pos" checked="checked" /><label for="y_parameter_los_pos">LoS Positive</label>
-    <input type="radio" id="y_parameter_los_neg" name="y_parameter_option" value="mean_los_neg" /><label for="y_parameter_los_neg">LoS Negative</label>
     <input type="radio" id="y_parameter_capacity" name="y_parameter_option" value="capacity" /><label for="y_parameter_capacity">Capacity</label>
   </div>
 </p>
 
-<table id="source_info" style="float:left;width:800px;border:1px solid #e6e6e6">
+<table id="source_info" style="float:left;width:500px;border:1px solid #e6e6e6">
 <tr>
-    <th style="text-align:center">&harr;/&varr;</th>
+    <th style="text-align:center">&harr;/&uarr;</th>
     <th style="text-align:center">ID</th>
-    <th style="text-align:center">Abbr</th>
     <th style="text-align:right">Capacity</th>
     <th style="text-align:right">LoS Pos Mean</th>
     <th style="text-align:right">LoS Pos Std Dev</th>
-    <th style="text-align:right">LoS Neg Mean</th>
-    <th style="text-align:right">LoS Neg Std Dev</th>
 </tr>
 </thead>
 <% @hospitals.each do |hospital| %>
 <tr>
     <td style="text-align:center"></td>
     <td style="text-align:center"><%=h hospital.id %></td>
-    <td style="text-align:center"><%=h hospital.abbr %></td>
     <td style="text-align:right"><%=h hospital.capacity %></td>
     <td style="text-align:right"><%=h "%.4f"%hospital.mean_los_pos %></td>
     <td style="text-align:right"><%=h "%.4f"%hospital.stddev_los_pos %></td>
-    <td style="text-align:right"><%=h "%.4f"%hospital.mean_los_neg %></td>
-    <td style="text-align:right"><%=h "%.4f"%hospital.stddev_los_neg %></td>
 </tr>
 <% end %>
 </table>
-<div id="placeholder" style="float:left;width:600px;height:600px;"></div>
+<div id="placeholder" style="float:left;width:500px;height:600px;"></div>
 
 <ul id="myMenu" class="contextMenu">
     <li class="details">
@@ -77,6 +69,7 @@
 
 <script type="text/javascript">
 
+var row_mapping = <%= raw @row_mapping.to_json %>;
 var hospitals = <%= raw @hospitals.to_json %>;
 var hospital_count = hospitals.length;
 var x_hospitals = <%= raw Array.new(@hospitals.length).fill(true).to_json %>;
@@ -118,8 +111,8 @@ $(function() {
     var slider = $("#date_range_slider").slider({
             range: true,
             min: 1,
-            max: 700,
-            values: [75, 300],
+            max: 5000,
+            values: [4500, 5000],
             slide: function(event, ui) {
                 $(ui.handle).qtip('api').updatePosition(event,false);
                 $(ui.handle).qtip('api').updateContent(ui.value,false);
@@ -131,7 +124,7 @@ $(function() {
     });
     
     $(".ui-slider-handle:first").qtip({
-        content: {text:'75'},
+        content: {text:'4500'},
         position: {corner: {target: 'topMiddle', tooltip: 'bottomMiddle'}},
         style: {tip: 'bottomMiddle'},
         show: { ready:true,delay: 0},
@@ -139,7 +132,7 @@ $(function() {
     });
     
     $(".ui-slider-handle:last").qtip({
-        content: {text:'350'},
+        content: {text:'5000'},
         position: {corner: {target: 'bottomMiddle', tooltip: 'topMiddle'}},
         style: {tip: 'topMiddle'},
         show: { ready:true,delay: 0},
@@ -166,11 +159,15 @@ $(function() {
         break;
         case 'remove_col':
             x_hospitals[source_id-1] = false;
+            row_mapping["mean_los_pos"].splice(source_id, 1);
+            row_mapping["capacity"].splice(source_id, 1);
             x_hospital_count--;
             redraw();
         break;
         case 'remove_row':
             y_hospitals[target_id-1] = false;
+            row_mapping["mean_los_pos"].splice(target_id, 1);
+            row_mapping["capacity"].splice(target_id, 1);
             y_hospital_count--;
             redraw();
         break;
@@ -181,6 +178,8 @@ $(function() {
         if (!item) return;
         if (!current_item || current_item.dataIndex != item.dataIndex) {
             current_item = item;
+            var x_parameter = $('input[name=x_parameter_option]:checked').val();
+            var y_parameter = $('input[name=y_parameter_option]:checked').val();
             
             plot.unhighlight();
             $('#source_info tr:odd').css('background-color','#d9d9d9');
@@ -198,17 +197,17 @@ $(function() {
             }
             
             var result = result_from_index(current_item.dataIndex);
-            var source_id = result.source_id;
-            var target_id = result.target_id;
+            var source_id = (x_parameter != "id" ? row_mapping[x_parameter][result.source_id] : result.source_id);
+            var target_id = (y_parameter != "id" ? row_mapping[y_parameter][result.target_id] : result.target_id);
             if (source_id != target_id) {
                 $('#source_info tr:eq('+source_id+')').css('background-color','#d9d9f2');
                 $('#source_info tr:eq('+source_id+') td:eq(0)').html('&harr;');
                 $('#source_info tr:eq('+target_id+')').css('background-color','#d9f2d9');
-                $('#source_info tr:eq('+target_id+') td:eq(0)').html('&varr;');
+                $('#source_info tr:eq('+target_id+') td:eq(0)').html('&uarr;');
             }
             else {
                 $('#source_info tr:eq('+source_id+')').css('background-color','#d9f2f2');
-                $('#source_info tr:eq('+source_id+') td:eq(0)').html('&harr;&varr;');
+                $('#source_info tr:eq('+source_id+') td:eq(0)').html('&harr;&uarr;');
             }
         }
     });
